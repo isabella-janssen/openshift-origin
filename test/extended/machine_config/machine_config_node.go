@@ -33,6 +33,8 @@ var _ = g.Describe("[sig-mco][OCPFeatureGate:MachineConfigNodes]", func() {
 		MCOMachineConfigPoolBaseDir = exutil.FixturePath("testdata", "machine_config", "machineconfigpool")
 		MCOMachineConfigBaseDir     = exutil.FixturePath("testdata", "machine_config", "machineconfig")
 		infraMCPFixture             = filepath.Join(MCOMachineConfigPoolBaseDir, "infra-mcp.yaml")
+		nodeDisruptionFixture       = filepath.Join(MCOMachineConfigBaseDir, "nodedisruptionpolicy-rebootless-path.yaml")
+		nodeDisruptionEmptyFixture  = filepath.Join(MCOMachineConfigBaseDir, "managedbootimages-empty.yaml")
 		customMCFixture             = filepath.Join(MCOMachineConfigBaseDir, "0-infra-mc.yaml")
 		masterMCFixture             = filepath.Join(MCOMachineConfigBaseDir, "0-master-mc.yaml")
 		invalidWorkerMCFixture      = filepath.Join(MCOMachineConfigBaseDir, "1-worker-invalid-mc.yaml")
@@ -52,7 +54,7 @@ var _ = g.Describe("[sig-mco][OCPFeatureGate:MachineConfigNodes]", func() {
 		if IsSingleNode(oc) {
 			ValidateMCNConditionTransitionsSNO(oc, masterMCFixture)
 		} else {
-			ValidateMCNConditionTransitions(oc, customMCFixture, infraMCPFixture)
+			ValidateMCNConditionTransitions(oc, nodeDisruptionFixture, nodeDisruptionEmptyFixture, customMCFixture, infraMCPFixture)
 		}
 	})
 
@@ -176,13 +178,22 @@ func ValidateMCNPropertiesSNO(oc *exutil.CLI, fixture string) {
 // `ValidateMCNConditionTransitions` checks that Conditions properly update on a node update
 // Note that a custom MCP is created for this test to limit the number of upgrading nodes &
 // decrease cleanup time.
-func ValidateMCNConditionTransitions(oc *exutil.CLI, mcFixture string, mcpFixture string) {
+func ValidateMCNConditionTransitions(oc *exutil.CLI, nodeDisruptionFixture string, nodeDisruptionEmptyFixture string, mcFixture string, mcpFixture string) {
 	poolName := custom
 	mcName := fmt.Sprintf("90-%v-testfile", poolName)
 
 	// Create client set for test
 	clientSet, clientErr := machineconfigclient.NewForConfig(oc.KubeFramework().ClientConfig())
 	o.Expect(clientErr).NotTo(o.HaveOccurred(), "Error creating client set for test.")
+
+	// Apply a node disruption policy to allow for rebootless update
+	ApplyBootImageFixture(oc, nodeDisruptionFixture)
+
+	// Remove node disruption policy on test completion or failure
+	defer func() {
+		// Apply empty MachineConfiguration fixture to remove previously set NodeDisruptionPolicy
+		ApplyBootImageFixture(oc, nodeDisruptionEmptyFixture)
+	}()
 
 	// Grab a random worker node
 	workerNode := GetRandomNode(oc, worker)
