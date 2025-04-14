@@ -30,16 +30,17 @@ const (
 var _ = g.Describe("[sig-mco][OCPFeatureGate:MachineConfigNodes]", func() {
 	defer g.GinkgoRecover()
 	var (
-		MCOMachineConfigPoolBaseDir = exutil.FixturePath("testdata", "machine_config", "machineconfigpool")
-		MCOMachineConfigBaseDir     = exutil.FixturePath("testdata", "machine_config", "machineconfig")
-		infraMCPFixture             = filepath.Join(MCOMachineConfigPoolBaseDir, "infra-mcp.yaml")
-		nodeDisruptionFixture       = filepath.Join(MCOMachineConfigBaseDir, "nodedisruptionpolicy-rebootless-path.yaml")
-		nodeDisruptionEmptyFixture  = filepath.Join(MCOMachineConfigBaseDir, "managedbootimages-empty.yaml")
-		customMCFixture             = filepath.Join(MCOMachineConfigBaseDir, "0-infra-mc.yaml")
-		masterMCFixture             = filepath.Join(MCOMachineConfigBaseDir, "0-master-mc.yaml")
-		invalidWorkerMCFixture      = filepath.Join(MCOMachineConfigBaseDir, "1-worker-invalid-mc.yaml")
-		invalidMasterMCFixture      = filepath.Join(MCOMachineConfigBaseDir, "1-master-invalid-mc.yaml")
-		oc                          = exutil.NewCLIWithoutNamespace("machine-config")
+		MCOMachineConfigPoolBaseDir    = exutil.FixturePath("testdata", "machine_config", "machineconfigpool")
+		MCOMachineConfigurationBaseDir = exutil.FixturePath("testdata", "machine_config", "machineconfigurations")
+		MCOMachineConfigBaseDir        = exutil.FixturePath("testdata", "machine_config", "machineconfig")
+		infraMCPFixture                = filepath.Join(MCOMachineConfigPoolBaseDir, "infra-mcp.yaml")
+		nodeDisruptionFixture          = filepath.Join(MCOMachineConfigurationBaseDir, "nodedisruptionpolicy-rebootless-path.yaml")
+		nodeDisruptionEmptyFixture     = filepath.Join(MCOMachineConfigurationBaseDir, "managedbootimages-empty.yaml")
+		customMCFixture                = filepath.Join(MCOMachineConfigBaseDir, "0-infra-mc.yaml")
+		masterMCFixture                = filepath.Join(MCOMachineConfigBaseDir, "0-master-mc.yaml")
+		invalidWorkerMCFixture         = filepath.Join(MCOMachineConfigBaseDir, "1-worker-invalid-mc.yaml")
+		invalidMasterMCFixture         = filepath.Join(MCOMachineConfigBaseDir, "1-master-invalid-mc.yaml")
+		oc                             = exutil.NewCLIWithoutNamespace("machine-config")
 	)
 
 	g.It("[Serial]Should have MCN properties matching associated node properties [apigroup:machineconfiguration.openshift.io]", func() {
