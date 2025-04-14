@@ -1363,7 +1363,7 @@ var Annotations = map[string]string{
 
 	"[sig-mco][OCPFeatureGate:MachineConfigNodes] [Serial]Should have MCN properties matching associated node properties [apigroup:machineconfiguration.openshift.io]": " [Suite:openshift/conformance/serial]",
 
-	"[sig-mco][OCPFeatureGate:MachineConfigNodes] [Serial]Should properly transition through MCN conditions on node update [apigroup:machineconfiguration.openshift.io]": " [Suite:openshift/conformance/serial]",
+	"[sig-mco][OCPFeatureGate:MachineConfigNodes] [Serial]Should properly transition through MCN conditions on rebootless node update [apigroup:machineconfiguration.openshift.io]": " [Suite:openshift/conformance/serial]",
 
 	"[sig-mco][OCPFeatureGate:MachineConfigNodes] [Serial][Slow]Should properly create and remove MCN on node creation and deletion [apigroup:machineconfiguration.openshift.io]": "",
 
