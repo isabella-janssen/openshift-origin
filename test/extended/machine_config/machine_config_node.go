@@ -43,12 +43,17 @@ var _ = g.Describe("[sig-mco][OCPFeatureGate:MachineConfigNodes]", func() {
 		oc                             = exutil.NewCLIWithoutNamespace("machine-config")
 	)
 
-	g.It("[Serial]Should have MCN properties matching associated node properties [apigroup:machineconfiguration.openshift.io]", func() {
+	g.It("Should have MCN properties matching associated node properties for nodes in default MCPs [apigroup:machineconfiguration.openshift.io]", func() {
 		if IsSingleNode(oc) { //handle SNO clusters
-			ValidateMCNPropertiesSNO(oc, infraMCPFixture)
+			ValidateMCNPropertiesSNO(oc)
 		} else { //handle standard, non-SNO, clusters
-			ValidateMCNProperties(oc, infraMCPFixture)
+			ValidateMCNPropertiesDefaultMCP(oc)
 		}
+	})
+
+	g.It("[Serial]Should have MCN properties matching associated node properties for nodes in custom MCPs [apigroup:machineconfiguration.openshift.io]", func() {
+		skipOnSingleNodeTopology(oc) //skip this test for SNO
+		ValidateMCNPropertiesCustomMCP(oc, infraMCPFixture)
 	})
 
 	g.It("[Serial]Should properly transition through MCN conditions on rebootless node update [apigroup:machineconfiguration.openshift.io]", func() {
@@ -88,11 +93,12 @@ var _ = g.Describe("[sig-mco][OCPFeatureGate:MachineConfigNodes]", func() {
 	})
 })
 
-// `ValidateMCNProperties` checks that MCN properties match the corresponding node properties
+// `ValidateMCNPropertiesDefaultMCP` checks that MCN properties match the corresponding node
+// properties for nodes in the default (worker & master) MCPs.
 // Note: This test case does not work for SNO clusters due to the cluster's one node assuming
 // both the worker and master role since `GetRandomNode` selects nodes using node roles. Role
 // matching is not necessarily synonymous with MCP association in edge cases, such as in SNO.
-func ValidateMCNProperties(oc *exutil.CLI, fixture string) {
+func ValidateMCNPropertiesDefaultMCP(oc *exutil.CLI) {
 	// Create client set for test
 	clientSet, clientErr := machineconfigclient.NewForConfig(oc.KubeFramework().ClientConfig())
 	o.Expect(clientErr).NotTo(o.HaveOccurred(), "Error creating client set for test.")
@@ -112,6 +118,17 @@ func ValidateMCNProperties(oc *exutil.CLI, fixture string) {
 	framework.Logf("Validating MCN properties for node in default '%v' pool.", master)
 	mcnErr = ValidateMCNForNodeInPool(oc, clientSet, masterNode, master)
 	o.Expect(mcnErr).NotTo(o.HaveOccurred(), fmt.Sprintf("Error validating MCN properties node in default pool '%v'.", master))
+}
+
+// `ValidateMCNPropertiesCustomMCP` checks that MCN properties match the corresponding node properties
+func ValidateMCNPropertiesCustomMCP(oc *exutil.CLI, fixture string) {
+	// Create client set for test
+	clientSet, clientErr := machineconfigclient.NewForConfig(oc.KubeFramework().ClientConfig())
+	o.Expect(clientErr).NotTo(o.HaveOccurred(), "Error creating client set for test.")
+
+	// Grab a random node from each default pool
+	workerNode := GetRandomNode(oc, worker)
+	o.Expect(workerNode.Name).NotTo(o.Equal(""), "Could not get a worker node.")
 
 	// Cleanup custom MCP on test completion or failure
 	defer func() {
@@ -154,14 +171,14 @@ func ValidateMCNProperties(oc *exutil.CLI, fixture string) {
 
 	// Validate MCN for node in custom pool
 	framework.Logf("Validating MCN properties for node in custom '%v' pool.", custom)
-	mcnErr = ValidateMCNForNodeInPool(oc, clientSet, customNode, custom)
+	mcnErr := ValidateMCNForNodeInPool(oc, clientSet, customNode, custom)
 	o.Expect(mcnErr).NotTo(o.HaveOccurred(), fmt.Sprintf("Error validating MCN properties node in custom pool '%v'.", custom))
 }
 
 // `ValidateMCNPropertiesSNO` checks that MCN properties match the corresponding node properties
 // specifically for SNO clusters. Note that this test does not include creating a custom MCP, as
 // the default SNO node remains part of the master pool.
-func ValidateMCNPropertiesSNO(oc *exutil.CLI, fixture string) {
+func ValidateMCNPropertiesSNO(oc *exutil.CLI) {
 	// Create client set for test
 	clientSet, clientErr := machineconfigclient.NewForConfig(oc.KubeFramework().ClientConfig())
 	o.Expect(clientErr).NotTo(o.HaveOccurred(), "Error creating client set for test.")
