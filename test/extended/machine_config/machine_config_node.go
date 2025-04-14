@@ -50,11 +50,11 @@ var _ = g.Describe("[sig-mco][OCPFeatureGate:MachineConfigNodes]", func() {
 		}
 	})
 
-	g.It("[Serial]Should properly transition through MCN conditions on node update [apigroup:machineconfiguration.openshift.io]", func() {
+	g.It("[Serial]Should properly transition through MCN conditions on rebootless node update [apigroup:machineconfiguration.openshift.io]", func() {
 		if IsSingleNode(oc) {
-			ValidateMCNConditionTransitionsSNO(oc, masterMCFixture)
+			ValidateMCNConditionTransitionsOnRebootlessUpdateSNO(oc, nodeDisruptionFixture, nodeDisruptionEmptyFixture, masterMCFixture)
 		} else {
-			ValidateMCNConditionTransitions(oc, nodeDisruptionFixture, nodeDisruptionEmptyFixture, customMCFixture, infraMCPFixture)
+			ValidateMCNConditionTransitionsOnRebootlessUpdate(oc, nodeDisruptionFixture, nodeDisruptionEmptyFixture, customMCFixture, infraMCPFixture)
 		}
 	})
 
@@ -178,7 +178,7 @@ func ValidateMCNPropertiesSNO(oc *exutil.CLI, fixture string) {
 // `ValidateMCNConditionTransitions` checks that Conditions properly update on a node update
 // Note that a custom MCP is created for this test to limit the number of upgrading nodes &
 // decrease cleanup time.
-func ValidateMCNConditionTransitions(oc *exutil.CLI, nodeDisruptionFixture string, nodeDisruptionEmptyFixture string, mcFixture string, mcpFixture string) {
+func ValidateMCNConditionTransitionsOnRebootlessUpdate(oc *exutil.CLI, nodeDisruptionFixture string, nodeDisruptionEmptyFixture string, mcFixture string, mcpFixture string) {
 	poolName := custom
 	mcName := fmt.Sprintf("90-%v-testfile", poolName)
 
@@ -241,7 +241,7 @@ func ValidateMCNConditionTransitions(oc *exutil.CLI, nodeDisruptionFixture strin
 	updatingNodeName := workerNode.Name
 
 	// Validate transition through conditions for MCN
-	validateTransitionThroughConditions(clientSet, updatingNodeName)
+	validateTransitionThroughConditions(clientSet, updatingNodeName, true)
 
 	// When an update is complete, all conditions other than `Updated` must be false
 	framework.Logf("Checking all conditions other than 'Updated' are False.")
@@ -250,7 +250,7 @@ func ValidateMCNConditionTransitions(oc *exutil.CLI, nodeDisruptionFixture strin
 
 // `ValidateMCNConditionTransitionsSNO` checks that Conditions properly update on a node update
 // in Single Node Openshift
-func ValidateMCNConditionTransitionsSNO(oc *exutil.CLI, mcFixture string) {
+func ValidateMCNConditionTransitionsOnRebootlessUpdateSNO(oc *exutil.CLI, nodeDisruptionFixture string, nodeDisruptionEmptyFixture string, mcFixture string) {
 	poolName := master
 	mcName := fmt.Sprintf("90-%v-testfile", poolName)
 
@@ -274,7 +274,7 @@ func ValidateMCNConditionTransitionsSNO(oc *exutil.CLI, mcFixture string) {
 	updatingNode := updatingNodes[0]
 
 	// Validate transition through conditions for MCN
-	validateTransitionThroughConditions(clientSet, updatingNode.Name)
+	validateTransitionThroughConditions(clientSet, updatingNode.Name, true)
 
 	// When an update is complete, all conditions other than `Updated` must be false
 	framework.Logf("Checking all conditions other than 'Updated' are False.")
@@ -282,7 +282,7 @@ func ValidateMCNConditionTransitionsSNO(oc *exutil.CLI, mcFixture string) {
 }
 
 // `validateTransitionThroughConditions` validates the condition trasnitions in the MCN during a node update
-func validateTransitionThroughConditions(clientSet *machineconfigclient.Clientset, updatingNodeName string) {
+func validateTransitionThroughConditions(clientSet *machineconfigclient.Clientset, updatingNodeName string, isRebootless bool) {
 	// Note that some conditions are passed through quickly in a node update, so the test can
 	// "miss" catching the phases. For test stability, if we fail to catch an "Unknown" status,
 	// a warning will be logged instead of erroring out the test.
@@ -300,14 +300,17 @@ func validateTransitionThroughConditions(clientSet *machineconfigclient.Clientse
 	framework.Logf("Waiting for Cordoned=True")
 	err = WaitForMCNConditionStatus(clientSet, updatingNodeName, mcfgv1alpha1.MachineConfigNodeUpdateCordoned, metav1.ConditionTrue, 30*time.Second, 1*time.Second)
 	o.Expect(err).NotTo(o.HaveOccurred(), "Error, could not detect Cordoned=True.")
-	framework.Logf("Waiting for Drained=Unknown")
-	err = WaitForMCNConditionStatus(clientSet, updatingNodeName, mcfgv1alpha1.MachineConfigNodeUpdateDrained, metav1.ConditionUnknown, 15*time.Second, 1*time.Second)
-	if err != nil {
-		framework.Logf("Warning, could not detect Drained=Unknown.")
+	// On standard, non-rebootless, update, check that node transitions through "Drained" phase
+	if !isRebootless {
+		framework.Logf("Waiting for Drained=Unknown")
+		err = WaitForMCNConditionStatus(clientSet, updatingNodeName, mcfgv1alpha1.MachineConfigNodeUpdateDrained, metav1.ConditionUnknown, 15*time.Second, 1*time.Second)
+		if err != nil {
+			framework.Logf("Warning, could not detect Drained=Unknown.")
+		}
+		framework.Logf("Waiting for Drained=True")
+		err = WaitForMCNConditionStatus(clientSet, updatingNodeName, mcfgv1alpha1.MachineConfigNodeUpdateDrained, metav1.ConditionTrue, 4*time.Minute, 1*time.Second)
+		o.Expect(err).NotTo(o.HaveOccurred(), "Error, could not detect Drained=True.")
 	}
-	framework.Logf("Waiting for Drained=True")
-	err = WaitForMCNConditionStatus(clientSet, updatingNodeName, mcfgv1alpha1.MachineConfigNodeUpdateDrained, metav1.ConditionTrue, 4*time.Minute, 1*time.Second)
-	o.Expect(err).NotTo(o.HaveOccurred(), "Error, could not detect Drained=True.")
 	framework.Logf("Waiting for AppliedFilesAndOS=Unknown")
 	err = WaitForMCNConditionStatus(clientSet, updatingNodeName, mcfgv1alpha1.MachineConfigNodeUpdateFilesAndOS, metav1.ConditionUnknown, 30*time.Second, 1*time.Second)
 	if err != nil {
@@ -319,14 +322,25 @@ func validateTransitionThroughConditions(clientSet *machineconfigclient.Clientse
 	framework.Logf("Waiting for UpdateExecuted=True")
 	err = WaitForMCNConditionStatus(clientSet, updatingNodeName, mcfgv1alpha1.MachineConfigNodeUpdateExecuted, metav1.ConditionTrue, 20*time.Second, 1*time.Second)
 	o.Expect(err).NotTo(o.HaveOccurred(), "Error, could not detect UpdateExecuted=True.")
-	framework.Logf("Waiting for RebootedNode=Unknown")
-	err = WaitForMCNConditionStatus(clientSet, updatingNodeName, mcfgv1alpha1.MachineConfigNodeUpdateRebooted, metav1.ConditionUnknown, 15*time.Second, 1*time.Second)
-	if err != nil {
-		framework.Logf("Warning, could not detect RebootedNode=Unknown.")
+	// On rebootless update, check that node transitions through "UpdatePostActionComplete" phase
+	if isRebootless {
+		framework.Logf("Waiting for UpdatePostActionComplete=Unknown")
+		err = WaitForMCNConditionStatus(clientSet, updatingNodeName, mcfgv1alpha1.MachineConfigNodeUpdatePostActionComplete, metav1.ConditionUnknown, 15*time.Second, 1*time.Second)
+		if err != nil {
+			framework.Logf("Warning, could not detect UpdatePostActionComplete=Unknown.")
+		}
+		framework.Logf("Waiting for UpdatePostActionComplete=True")
+		err = WaitForMCNConditionStatus(clientSet, updatingNodeName, mcfgv1alpha1.MachineConfigNodeUpdatePostActionComplete, metav1.ConditionTrue, 6*time.Minute, 1*time.Second)
+		o.Expect(err).NotTo(o.HaveOccurred(), "Error, could not detect UpdatePostActionComplete=True.")
+	} else { // On standard, non-rebootless, update, check that node transitions through "RebootedNode" phase
+		framework.Logf("Waiting for RebootedNode=Unknown")
+		err = WaitForMCNConditionStatus(clientSet, updatingNodeName, mcfgv1alpha1.MachineConfigNodeUpdateRebooted, metav1.ConditionUnknown, 15*time.Second, 1*time.Second)
+		if err != nil {
+			framework.Logf("Warning, could not detect RebootedNode=Unknown.")
+		}
+		framework.Logf("Waiting for RebootedNode=True")
+		err = WaitForMCNConditionStatus(clientSet, updatingNodeName, mcfgv1alpha1.MachineConfigNodeUpdateRebooted, metav1.ConditionTrue, 6*time.Minute, 1*time.Second)
 	}
-	framework.Logf("Waiting for RebootedNode=True")
-	err = WaitForMCNConditionStatus(clientSet, updatingNodeName, mcfgv1alpha1.MachineConfigNodeUpdateRebooted, metav1.ConditionTrue, 6*time.Minute, 1*time.Second)
-	o.Expect(err).NotTo(o.HaveOccurred(), "Error, could not detect RebootedNode=True.")
 	framework.Logf("Waiting for Resumed=True")
 	err = WaitForMCNConditionStatus(clientSet, updatingNodeName, mcfgv1alpha1.MachineConfigNodeResumed, metav1.ConditionTrue, 15*time.Second, 1*time.Second)
 	o.Expect(err).NotTo(o.HaveOccurred(), "Error, could not detect Resumed=True.")
