@@ -358,7 +358,7 @@ func SimplePISTest(oc *exutil.CLI, kubeClient *kubernetes.Clientset, clientSet *
 	defer cancel()
 
 	err := waitForPISStatusX(ctx, oc, kubeClient, clientSet, pisName, success, isMetalDisconnected)
-	o.Expect(err).NotTo(o.HaveOccurred(), "Checking status of PIS")
+	o.Expect(err).NotTo(o.HaveOccurred(), fmt.Sprintf("Error checking status of PIS; err: %v; pisName: %v; isMetalDisconnected: %v; success: %v", err, pisName, isMetalDisconnected, success))
 }
 
 func detectXCondition(oc *exutil.CLI, node corev1.Node, mcn *mcfgv1.MachineConfigNode, appliedPIS *mcfgv1.PinnedImageSet, detectingSuccess bool, isMetalDisconnected bool) (bool, bool, error) {
