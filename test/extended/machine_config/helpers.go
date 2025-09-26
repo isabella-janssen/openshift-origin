@@ -1349,18 +1349,25 @@ func mcdForNode(client kubernetes.Interface, node *corev1.Node) (*corev1.Pod, er
 	return &mcdList.Items[0], nil
 }
 
-// Get nodes from a Pool
-func getNodesForPool(ctx context.Context, oc *exutil.CLI, kubeClient *kubernetes.Clientset, pool *mcfgv1.MachineConfigPool) (*corev1.NodeList, error) {
-	selector, err := metav1.LabelSelectorAsSelector(pool.Spec.NodeSelector)
-	if err != nil {
-		return nil, fmt.Errorf("invalid label selector: %w", err)
-	}
-	nodes, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
-	if err != nil {
-		return nil, fmt.Errorf("couldnt get nodes for mcp: %w", err)
-	}
-	return nodes, nil
-}
+// // Get nodes from a Pool
+// func getNodesForPool(ctx context.Context, oc *exutil.CLI, kubeClient *kubernetes.Clientset, pool *mcfgv1.MachineConfigPool) (*corev1.NodeList, error) {
+// 	selector, err := metav1.LabelSelectorAsSelector(pool.Spec.NodeSelector)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("invalid label selector: %w", err)
+// 	}
+// 	nodes, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
+// 	if err != nil {
+// 		return nil, fmt.Errorf("couldnt get nodes for mcp: %w", err)
+// 	}
+// 	// Get "valid" nodes for tests, which excludes any unready or deleting nodes
+// 	var validNodes []corev1.Node
+// 	for _, node := range nodes.Items {
+// 		if node.Annotations[] {
+// 			validNodes = append(validNodes, node)
+// 		}
+// 	}
+// 	return nodes, nil
+// }
 
 // WaitForConfigAndPoolComplete is a helper function that gets a renderedConfig and waits for its pool to complete.
 // The return value is the final rendered config.
