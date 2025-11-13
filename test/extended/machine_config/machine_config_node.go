@@ -73,6 +73,12 @@ var _ = g.Describe("[sig-mco][OCPFeatureGate:MachineConfigNodes]", func() {
 	})
 
 	g.It("[Serial]Should properly transition through MCN conditions on rebootless node update [apigroup:machineconfiguration.openshift.io]", func() {
+		// Skip this test for tech preview clusters since the conditions to transition through are
+		// different and tested under the ImageModeStatusReporting FeatureGate.
+		if exutil.IsTechPreviewNoUpgrade(context.TODO(), oc.AdminConfigClient()) {
+			e2eskipper.Skipf("Skipping this test on TechPreview as conditions are tested under `ImageModeStatusReporting` FeatureGate.")
+		}
+
 		if IsSingleNode(oc) {
 			ValidateMCNConditionTransitionsOnRebootlessUpdateSNO(oc, nodeDisruptionFixture, nodeDisruptionEmptyFixture, masterMCFixture)
 		} else {
