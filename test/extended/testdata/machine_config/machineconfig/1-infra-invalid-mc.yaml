@@ -2,8 +2,8 @@ apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfig
 metadata:
   labels:
-    machineconfiguration.openshift.io/role: worker
-  name: 91-worker-testfile-invalid
+    machineconfiguration.openshift.io/role: infra
+  name: 91-infra-testfile-invalid
 spec:
   config:
     ignition:

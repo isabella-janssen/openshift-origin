@@ -40,8 +40,7 @@ var _ = g.Describe("[sig-mco][OCPFeatureGate:MachineConfigNodes]", func() {
 		nodeDisruptionEmptyFixture     = filepath.Join(MCOMachineConfigurationBaseDir, "managedbootimages-empty.yaml")
 		customMCFixture                = filepath.Join(MCOMachineConfigBaseDir, "0-infra-mc.yaml")
 		masterMCFixture                = filepath.Join(MCOMachineConfigBaseDir, "0-master-mc.yaml")
-		invalidWorkerMCFixture         = filepath.Join(MCOMachineConfigBaseDir, "1-worker-invalid-mc.yaml")
-		invalidMasterMCFixture         = filepath.Join(MCOMachineConfigBaseDir, "1-master-invalid-mc.yaml")
+		invalidInfraMCFixture          = filepath.Join(MCOMachineConfigBaseDir, "1-infra-invalid-mc.yaml")
 		oc                             = exutil.NewCLIWithoutNamespace("machine-config")
 	)
 
@@ -92,11 +91,13 @@ var _ = g.Describe("[sig-mco][OCPFeatureGate:MachineConfigNodes]", func() {
 
 	// This test is `Disruptive` because it degrades a node.
 	g.It("[Suite:openshift/machine-config-operator/disruptive][Disruptive]Should properly report MCN conditions on node degrade [apigroup:machineconfiguration.openshift.io]", func() {
-		if IsSingleNode(oc) { //handle SNO clusters
-			ValidateMCNConditionOnNodeDegrade(oc, invalidMasterMCFixture, true)
-		} else { //handle standard, non-SNO, clusters
-			ValidateMCNConditionOnNodeDegrade(oc, invalidWorkerMCFixture, false)
-		}
+		// TODO: add here a skip if the worker pool does not have machines
+
+		// if IsSingleNode(oc) { //handle SNO clusters
+		// 	ValidateMCNConditionOnNodeDegrade(oc, invalidMasterMCFixture, true)
+		// } else { //handle standard, non-SNO, clusters
+		ValidateMCNConditionOnNodeDegrade(oc, invalidInfraMCFixture, infraMCPFixture)
+		// }
 	})
 
 	// This test is `Disruptive` because it creates and removes a node. It is also considered `Slow` because it takes longer than 5 min to run.
@@ -369,18 +370,33 @@ func validateTransitionThroughConditions(clientSet *machineconfigclient.Clientse
 }
 
 // `ValidateMCNConditionOnNodeDegrade` checks that Conditions properly update on a node failure (MCP degrade)
-func ValidateMCNConditionOnNodeDegrade(oc *exutil.CLI, fixture string, isSno bool) {
+func ValidateMCNConditionOnNodeDegrade(oc *exutil.CLI, mcFixture, mcpFixture string) {
+	poolName := custom
+	mcName := "91-infra-testfile-invalid"
+
 	// Create client set for test
 	clientSet, clientErr := machineconfigclient.NewForConfig(oc.KubeFramework().ClientConfig())
 	o.Expect(clientErr).NotTo(o.HaveOccurred(), "Error creating client set for test.")
 
-	// In SNO, master pool will degrade
-	poolName := worker
-	mcName := "91-worker-testfile-invalid"
-	if isSno {
-		poolName = master
-		mcName = "91-master-testfile-invalid"
-	}
+	// Grab a random worker node
+	workerNode := GetRandomNode(oc, worker)
+	o.Expect(workerNode.Name).NotTo(o.Equal(""), "Could not get a worker node.")
+
+	// Cleanup custom MCP on test completion or failure
+	defer func() {
+		cleanupErr := CleanupCustomMCP(oc, clientSet, custom, workerNode.Name, &mcName)
+		o.Expect(cleanupErr).NotTo(o.HaveOccurred(), fmt.Sprintf("Failed cleaning up '%v' MCP: %v.", custom, cleanupErr))
+	}()
+
+	// Apply the fixture to create a custom MCP called "infra" & label the worker node accordingly
+	mcpErr := oc.Run("apply").Args("-f", mcpFixture).Execute()
+	o.Expect(mcpErr).NotTo(o.HaveOccurred(), "Could not create custom MCP.")
+	labelErr := oc.Run("label").Args(fmt.Sprintf("node/%s", workerNode.Name), fmt.Sprintf("node-role.kubernetes.io/%s=", custom)).Execute()
+	o.Expect(labelErr).NotTo(o.HaveOccurred(), fmt.Sprintf("Could not add label 'node-role.kubernetes.io/%s' to node '%v'.", custom, workerNode.Name))
+
+	// Wait for the custom pool to be updated with the node ready
+	framework.Logf("Waiting for '%v' MCP to be updated with %v ready machines.", custom, 1)
+	WaitForMCPToBeReady(oc, clientSet, custom, 1)
 
 	var degradedNodeMCN *mcfgv1.MachineConfigNode
 	// Cleanup MC and fix node degradation on failure or test completion
@@ -402,7 +418,7 @@ func ValidateMCNConditionOnNodeDegrade(oc *exutil.CLI, fixture string, isSno boo
 	}()
 
 	// Apply invalid MC
-	mcErr := oc.Run("apply").Args("-f", fixture).Execute()
+	mcErr := oc.Run("apply").Args("-f", mcFixture).Execute()
 	o.Expect(mcErr).NotTo(o.HaveOccurred(), "Could not apply MachineConfig.")
 
 	// Wait for MCP to be in a degraded state with one degraded machine
@@ -438,6 +454,7 @@ func ValidateMCNConditionOnNodeDegrade(oc *exutil.CLI, fixture string, isSno boo
 	o.Expect(executedCondition.Status).Should(o.Equal(metav1.ConditionUnknown), "Condition 'UpdateExecuted' does not have the expected status of 'Unknown'.")
 	framework.Logf("Validating that `AppliedFilesAndOS` condition in '%v' MCN has a status of 'Unknown'.", degradedNodeMCN.Name)
 	o.Expect(filesAndOSCondition.Status).Should(o.Equal(metav1.ConditionUnknown), "Condition 'AppliedFilesAndOS' does not have the expected status of 'Unknown'.")
+
 }
 
 // `ValidateMCNProperties` checks that MCNs with correct properties are created on node creation

@@ -421,8 +421,8 @@
 // test/extended/testdata/machine_config/kubeletconfig/gcKC.yaml
 // test/extended/testdata/machine_config/machineconfig/0-infra-mc.yaml
 // test/extended/testdata/machine_config/machineconfig/0-master-mc.yaml
+// test/extended/testdata/machine_config/machineconfig/1-infra-invalid-mc.yaml
 // test/extended/testdata/machine_config/machineconfig/1-master-invalid-mc.yaml
-// test/extended/testdata/machine_config/machineconfig/1-worker-invalid-mc.yaml
 // test/extended/testdata/machine_config/machineconfigpool/customMCP.yaml
 // test/extended/testdata/machine_config/machineconfigpool/infra-mcp.yaml
 // test/extended/testdata/machine_config/machineconfigurations/managedbootimages-all.yaml
@@ -49091,6 +49091,39 @@ func testExtendedTestdataMachine_configMachineconfig0MasterMcYaml() (*asset, err
 	return a, nil
 }
 
+var _testExtendedTestdataMachine_configMachineconfig1InfraInvalidMcYaml = []byte(`apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  labels:
+    machineconfiguration.openshift.io/role: infra
+  name: 91-infra-testfile-invalid
+spec:
+  config:
+    ignition:
+      version: 3.2.0
+    storage:
+      files:
+      - contents:
+          source: data:,hello%20world%0A
+        mode: 420
+        path: /home/core
+`)
+
+func testExtendedTestdataMachine_configMachineconfig1InfraInvalidMcYamlBytes() ([]byte, error) {
+	return _testExtendedTestdataMachine_configMachineconfig1InfraInvalidMcYaml, nil
+}
+
+func testExtendedTestdataMachine_configMachineconfig1InfraInvalidMcYaml() (*asset, error) {
+	bytes, err := testExtendedTestdataMachine_configMachineconfig1InfraInvalidMcYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "test/extended/testdata/machine_config/machineconfig/1-infra-invalid-mc.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _testExtendedTestdataMachine_configMachineconfig1MasterInvalidMcYaml = []byte(`apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfig
 metadata:
@@ -49120,39 +49153,6 @@ func testExtendedTestdataMachine_configMachineconfig1MasterInvalidMcYaml() (*ass
 	}
 
 	info := bindataFileInfo{name: "test/extended/testdata/machine_config/machineconfig/1-master-invalid-mc.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _testExtendedTestdataMachine_configMachineconfig1WorkerInvalidMcYaml = []byte(`apiVersion: machineconfiguration.openshift.io/v1
-kind: MachineConfig
-metadata:
-  labels:
-    machineconfiguration.openshift.io/role: worker
-  name: 91-worker-testfile-invalid
-spec:
-  config:
-    ignition:
-      version: 3.2.0
-    storage:
-      files:
-      - contents:
-          source: data:,hello%20world%0A
-        mode: 420
-        path: /home/core
-`)
-
-func testExtendedTestdataMachine_configMachineconfig1WorkerInvalidMcYamlBytes() ([]byte, error) {
-	return _testExtendedTestdataMachine_configMachineconfig1WorkerInvalidMcYaml, nil
-}
-
-func testExtendedTestdataMachine_configMachineconfig1WorkerInvalidMcYaml() (*asset, error) {
-	bytes, err := testExtendedTestdataMachine_configMachineconfig1WorkerInvalidMcYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "test/extended/testdata/machine_config/machineconfig/1-worker-invalid-mc.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -56582,8 +56582,8 @@ var _bindata = map[string]func() (*asset, error){
 	"test/extended/testdata/machine_config/kubeletconfig/gcKC.yaml":                                          testExtendedTestdataMachine_configKubeletconfigGckcYaml,
 	"test/extended/testdata/machine_config/machineconfig/0-infra-mc.yaml":                                    testExtendedTestdataMachine_configMachineconfig0InfraMcYaml,
 	"test/extended/testdata/machine_config/machineconfig/0-master-mc.yaml":                                   testExtendedTestdataMachine_configMachineconfig0MasterMcYaml,
+	"test/extended/testdata/machine_config/machineconfig/1-infra-invalid-mc.yaml":                            testExtendedTestdataMachine_configMachineconfig1InfraInvalidMcYaml,
 	"test/extended/testdata/machine_config/machineconfig/1-master-invalid-mc.yaml":                           testExtendedTestdataMachine_configMachineconfig1MasterInvalidMcYaml,
-	"test/extended/testdata/machine_config/machineconfig/1-worker-invalid-mc.yaml":                           testExtendedTestdataMachine_configMachineconfig1WorkerInvalidMcYaml,
 	"test/extended/testdata/machine_config/machineconfigpool/customMCP.yaml":                                 testExtendedTestdataMachine_configMachineconfigpoolCustommcpYaml,
 	"test/extended/testdata/machine_config/machineconfigpool/infra-mcp.yaml":                                 testExtendedTestdataMachine_configMachineconfigpoolInfraMcpYaml,
 	"test/extended/testdata/machine_config/machineconfigurations/managedbootimages-all.yaml":                 testExtendedTestdataMachine_configMachineconfigurationsManagedbootimagesAllYaml,
@@ -57352,8 +57352,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"machineconfig": {nil, map[string]*bintree{
 						"0-infra-mc.yaml":          {testExtendedTestdataMachine_configMachineconfig0InfraMcYaml, map[string]*bintree{}},
 						"0-master-mc.yaml":         {testExtendedTestdataMachine_configMachineconfig0MasterMcYaml, map[string]*bintree{}},
+						"1-infra-invalid-mc.yaml":  {testExtendedTestdataMachine_configMachineconfig1InfraInvalidMcYaml, map[string]*bintree{}},
 						"1-master-invalid-mc.yaml": {testExtendedTestdataMachine_configMachineconfig1MasterInvalidMcYaml, map[string]*bintree{}},
-						"1-worker-invalid-mc.yaml": {testExtendedTestdataMachine_configMachineconfig1WorkerInvalidMcYaml, map[string]*bintree{}},
 					}},
 					"machineconfigpool": {nil, map[string]*bintree{
 						"customMCP.yaml": {testExtendedTestdataMachine_configMachineconfigpoolCustommcpYaml, map[string]*bintree{}},

@@ -615,23 +615,38 @@ func WaitForMCPToBeReady(oc *exutil.CLI, machineConfigClient *machineconfigclien
 //  4. Wait for the node to have a current config version equal to the config version of the worker MCP
 //  5. Remove the custom MCP
 func CleanupCustomMCP(oc *exutil.CLI, clientSet *machineconfigclient.Clientset, customMCPName string, nodeName string, mcName *string) error {
-	// Unlabel node
-	framework.Logf("Removing label node-role.kubernetes.io/%v from node %v", customMCPName, nodeName)
-	unlabelErr := oc.Run("label").Args(fmt.Sprintf("node/%s", nodeName), fmt.Sprintf("node-role.kubernetes.io/%s-", customMCPName)).Execute()
-	if unlabelErr != nil {
-		return fmt.Errorf("could not remove label 'node-role.kubernetes.io/%v' from node '%v'; err: %v", customMCPName, nodeName, unlabelErr)
+	// Skip this if the custom MCP is already deleted
+	framework.Logf("Checking if MCP `%v` still exists", customMCPName)
+	customMcp, customMcpErr := clientSet.MachineconfigurationV1().MachineConfigPools().Get(context.TODO(), customMCPName, metav1.GetOptions{})
+	if customMcpErr != nil {
+		if apierrors.IsNotFound(customMcpErr) {
+			framework.Logf("Custom MCP `%v` no longer exists, no cleanup is required", customMCPName)
+			return nil
+		}
+		return fmt.Errorf("error checking existence of %v MCP", customMCPName)
+	}
+
+	// Unlabel node if one is in the MCP
+	if customMcp.Status.MachineCount > 0 {
+		framework.Logf("Removing label node-role.kubernetes.io/%v from node %v", customMCPName, nodeName)
+		unlabelErr := oc.AsAdmin().Run("label").Args(fmt.Sprintf("node/%s", nodeName), fmt.Sprintf("node-role.kubernetes.io/%s-", customMCPName)).Execute()
+		if unlabelErr != nil {
+			return fmt.Errorf("could not remove label 'node-role.kubernetes.io/%v' from node '%v'; err: %v", customMCPName, nodeName, unlabelErr)
+		}
 	}
 
 	// Wait for custom MCP to report no ready nodes
 	framework.Logf("Waiting for %v MCP to be updated with %v ready machines.", customMCPName, 0)
 	WaitForMCPToBeReady(oc, clientSet, customMCPName, 0)
 
-	// Delete the MC, if one was provided
+	// Delete the MC, if one was provided and it's still applied
 	if mcName != nil {
-		deleteMCErr := oc.Run("delete").Args("machineconfig", *mcName).Execute()
-		if deleteMCErr != nil {
-			return fmt.Errorf("could delete MachineConfig '%v'; err: %v", mcName, deleteMCErr)
-
+		_, mcErr := clientSet.MachineconfigurationV1().MachineConfigs().Get(context.TODO(), *mcName, metav1.GetOptions{})
+		if mcErr == nil {
+			deleteMCErr := oc.Run("delete").Args("machineconfig", *mcName).Execute()
+			if deleteMCErr != nil {
+				return fmt.Errorf("could delete MachineConfig '%v'; err: %v", mcName, deleteMCErr)
+			}
 		}
 	}
 
